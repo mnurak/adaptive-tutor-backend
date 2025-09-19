@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+gunicorn
+sqlalchemy[asyncio]>=2.0.0
+psycopg2-binary
+aiosqlite
+asyncpg
+argon2-cffi # <-- NEW HASHING LIBRARY
+passlib[argon2] # <-- Use argon2 with passlib
+pydantic[email]
+pydantic-settings
+python-jose[cryptography]
+httpx
+neo4j>=5.14.0
+groq>=0.9.0

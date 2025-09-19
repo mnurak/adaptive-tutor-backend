@@ -1,16 +1,25 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, Any, List
 
+# --- SCHEMA FOR POSTGRESQL CONCEPTS ---
+# This is the schema used by init_db.py to create the initial
+# concepts in your relational database.
+class ConceptBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class ConceptCreate(ConceptBase):
+    pass
+
+# --- SCHEMA FOR NEO4J CONCEPTS ---
+# This is the rich schema used by the knowledge graph services.
 class Neo4jConcept(BaseModel):
     """
     Represents a rich concept (Topic or Subtopic) fetched from Neo4j,
-    matching the user's specific DSA graph structure.
+    matching your specific DSA graph structure.
     """
-    # Core properties present in most nodes
     name: str
     id: str
-    
-    # Detailed properties that may or may not be present
     description: Optional[str] = None
     complexity: Optional[str] = None
     level: Optional[int] = None
@@ -19,11 +28,8 @@ class Neo4jConcept(BaseModel):
     type: Optional[str] = None
     key_concepts: Optional[List[str]] = []
     
-    # Custom validator to handle the Neo4j object structure
     @classmethod
     def model_validate(cls, obj: Any, **kwargs):
-        # The data from the neo4j driver is a dict-like object (a Node)
-        # We convert it to a standard dictionary to be safe.
         properties = dict(obj)
         return super().model_validate(properties, **kwargs)
 

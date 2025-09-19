@@ -19,8 +19,6 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return result.scalars().first()
 
     async def create(self, db: AsyncSession, *, obj_in: UserCreate) -> User:
-        # UPDATED: This function now ONLY creates the user.
-        # The problematic 'db.refresh' call is removed.
         cognitive_profile_data = obj_in.cognitive_profile.model_dump()
         
         db_obj = User(
@@ -30,6 +28,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         )
         db.add(db_obj)
         await db.commit()
+        # We need to refresh to get the relationships loaded correctly after creation
+        await db.refresh(db_obj, attribute_names=['cognitive_profile'])
         return db_obj
 
 user = CRUDUser(User)

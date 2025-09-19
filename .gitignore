@@ -2,8 +2,6 @@
 .vscode
 __pycache__
 
-Dockerfile
-
 env/
 
 # https://gemini.google.com/app/78201a84eb3bd068

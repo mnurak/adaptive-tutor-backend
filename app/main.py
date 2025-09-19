@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1.api import api_router
@@ -11,39 +12,38 @@ from app.db.neo4j_driver import neo4j_driver
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Handles application startup and shutdown events.
-    """
-    # Startup logic
+    """Handles application startup and shutdown events."""
     print("--- Application Starting Up ---")
     async with engine.begin() as conn:
-        # await conn.run_sync(Base.metadata.drop_all) # Optional: drop tables for a clean start
         await conn.run_sync(Base.metadata.create_all)
     await init_db()
-    neo4j_driver.get_driver() # Initialize the driver
+    neo4j_driver.get_driver()
     
-    yield # The application is now running
+    yield
     
-    # Shutdown logic
     print("--- Application Shutting Down ---")
     await neo4j_driver.close()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    lifespan=lifespan, # Use the new lifespan manager
+    lifespan=lifespan,
     openapi_url="/api/v1/openapi.json"
 )
+
+# ----------------- FINAL CORS FIX -----------------
+# This allows all origins, methods, and headers.
+# It's the most open configuration possible for development.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"], # Allow all methods
+    allow_headers=["*"], # Allow all headers
+)
+# ----------------------------------------------------
 
 app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/", tags=["Root"])
 async def read_root():
     return {"message": f"Welcome to the {settings.PROJECT_NAME}!"}
-
-# This is a simple mock for the GORQ API for demonstration purposes
-@app.post("/mock-gorq/generate", tags=["Mock"])
-async def mock_gorq_api(request_body: dict):
-    """A mock endpoint to simulate the GORQ LLM API."""
-    await asyncio.sleep(1) # Simulate network latency
-    prompt = request_body.get("prompt", "")
-    return {"instruction": f"🎨 **Visually Engaging Instruction** 🎨\n\nHere is a personalized lesson based on your profile:\n\n{prompt}\n\n*This was a mock response generated for demonstration.*"}

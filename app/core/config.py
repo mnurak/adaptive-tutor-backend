@@ -1,5 +1,3 @@
-# app/core/config.py
-
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -10,14 +8,15 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     
     GORQ_API_KEY: str
-    GORQ_API_BASE_URL: str
 
-    # Add these Neo4j settings
+    # Neo4j Settings
     NEO4J_URI: str
     NEO4J_USER: str
     NEO4J_PASSWORD: str
 
     class Config:
         env_file = ".env"
+        case_sensitive = True
+
 
 settings = Settings()

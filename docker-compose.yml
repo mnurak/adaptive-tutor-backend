@@ -1,25 +1,24 @@
-version: '3.8'
-
 services:
   # The Backend FastAPI Application Service
   backend:
-    build: . # Build the image from the Dockerfile in the current directory
+    build: .
     container_name: adaptive_tutor_backend
     env_file:
-      - ./.env # Pass environment variables from the .env file
+      - ./.env
     ports:
-      - "8000:8000" # Map port 8000 on your machine to port 8000 in the container
+      - "8000:8000"
     depends_on:
-      - db # This service will not start until the 'db' service is healthy
+      db:
+        condition: service_healthy
 
   # The PostgreSQL Database Service
   db:
-    image: postgres:15-alpine # Use the official PostgreSQL 15 image
+    image: postgres:15-alpine
     container_name: adaptive_tutor_postgres
     volumes:
-      - postgres_data:/var/lib/postgresql/data/ # Persist database data
+      - postgres_data:/var/lib/postgresql/data/
     expose:
-      - 5432 # Expose port 5432 only to other services on the same network
+      - 5432
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -31,4 +30,4 @@ services:
       retries: 5
 
 volumes:
-  postgres_data: # Define the volume for data persistence
+  postgres_data:

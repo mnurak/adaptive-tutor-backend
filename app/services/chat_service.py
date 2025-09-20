@@ -6,7 +6,7 @@ from langchain_groq import ChatGroq
 
 from app.models.user import User
 from app.schemas.chat import ConversationRequest
-from app.services.cognitive_analyzer import cognitive_analyzer_service
+from app.services.cognitive_analyzer import ml_cognitive_analyzer_service
 from app.crud.crud_cognitive_profile import profile as crud_profile
 from app.core.config import settings # <-- Import settings
 
@@ -38,7 +38,10 @@ class ConversationalChainService:
         self.current_user = current_user
 
     async def _update_cognitive_profile(self, user_input: str) -> dict:
-        inferred_update, _ = cognitive_analyzer_service.analyze_prompt(user_input)
+        inferred_update, _ = ml_cognitive_analyzer_service.analyze_prompt(
+            user_input, 
+            current_profile=self.current_user.cognitive_profile
+        )
         if inferred_update.model_dump(exclude_unset=True):
             current_profile_dict = self.current_user.cognitive_profile.__dict__
             update_data = inferred_update.model_dump(exclude_unset=True)

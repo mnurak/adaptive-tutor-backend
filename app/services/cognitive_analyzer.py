@@ -1,71 +1,69 @@
-from app.schemas.cognitive_profile import (
-    CognitiveProfileUpdate, InstructionFlow, InputPreference, LearningAutonomy, ComplexityTolerance
-)
+from transformers import pipeline
+from typing import Dict, List
+import numpy as np
+import torch
 
-# A mapping of keywords to cognitive traits
-# In a real system, this would be a complex ML model.
-KEYWORD_MAPPING = {
-    # Instruction Flow
-    InstructionFlow.global_: ["detail", "how", "why", "explain", "concept"],
-    InstructionFlow.sequential: ["step-by-step", "process", "steps", "procedure", "how to"],
-    
-    # Input Preference
-    InputPreference.visual: ["chart", "diagram", "visualize", "draw", "picture", "graph"],
-    InputPreference.verbal: ["explain", "describe", "list", "tell me", "words"],
+from app.schemas.cognitive_profile import CognitiveProfileUpdate, InstructionFlow, InputPreference, LearningAutonomy, ComplexityTolerance
+from app.models.cognitive_profile import CognitiveProfile # Import the DB model
 
-    # Learning Autonomy
-    LearningAutonomy.guided: ["guide me", "help me", "your help", "show me"],
-    LearningAutonomy.independent: ["let me try", "i want to solve", "give me a hint"],
+class MLCognitiveAnalyzerService:
+    def __init__(self, adaptation_rate=0.1, decay_rate=0.05):
+        self.adaptation_rate = adaptation_rate
+        self.decay_rate = decay_rate
+        self.classifier = pipeline(
+            "zero-shot-classification", 
+            model="MoritzLaurer/deberta-v3-base-zeroshot-v1"
+        )
+        self.dimensions = self._define_dimensions()
 
-    # Complexity Tolerance
-    ComplexityTolerance.low: ["simple", "basic", "easy", "fundamental", "break it down"],
-    ComplexityTolerance.high: ["advanced", "complex", "in-depth", "thorough", "elaborate"],
-}
+    def _define_dimensions(self) -> Dict[str, List]:
+        """Maps our internal dimension names to the Enum options."""
+        return {
+            'instruction_flow': list(InstructionFlow),
+            'input_preference': list(InputPreference),
+            'learning_autonomy': list(LearningAutonomy),
+            'complexity_tolerance': list(ComplexityTolerance),
+        }
 
-class CognitiveAnalyzerService:
-    """
-    Analyzes a user's prompt to infer their current cognitive state.
-    """
-    def analyze_prompt(self, prompt: str) -> tuple[CognitiveProfileUpdate, float]:
+    def analyze_prompt(self, prompt: str, current_profile: CognitiveProfile) -> (CognitiveProfileUpdate, float):
         """
-        Analyzes the prompt and returns an updated cognitive profile and a confidence score.
-
-        Args:
-            prompt: The student's text query.
-
-        Returns:
-            A tuple containing a CognitiveProfileUpdate schema and a confidence score.
+        Analyzes a prompt using the ML model against a provided cognitive profile.
+        This method is now stateless.
         """
-        prompt_lower = prompt.lower()
-        detected_traits = {}
-        found_keywords = 0
-
-        # Analyze each cognitive dimension based on keywords
-        for trait, keywords in KEYWORD_MAPPING.items():
-            for keyword in keywords:
-                if keyword in prompt_lower:
-                    found_keywords += 1
-                    # Map the detected trait enum to its corresponding profile field
-                    if isinstance(trait, InstructionFlow):
-                        detected_traits["instruction_flow"] = trait
-                    elif isinstance(trait, InputPreference):
-                        detected_traits["input_preference"] = trait
-                    elif isinstance(trait, LearningAutonomy):
-                        detected_traits["learning_autonomy"] = trait
-                    elif isinstance(trait, ComplexityTolerance):
-                        detected_traits["complexity_tolerance"] = trait
-                    break # Move to the next trait once a keyword is found
-
-        # Calculate a simple confidence score
-        # (Number of dimensions with detected keywords) / (Total dimensions we're analyzing)
-        confidence = len(detected_traits) / 4.0 if found_keywords > 0 else 0.0
+        prompt = prompt.strip()
         
-        # Ensure confidence is between a reasonable range (e.g., 0.1 to 0.9)
-        confidence = min(max(confidence, 0.1), 0.9)
-
-        # Create a Pydantic model for the update
-        updated_profile = CognitiveProfileUpdate(**detected_traits)
+        # Create a mutable dictionary of the user's current profile scores.
+        # This simulates the ML-based profile scores, starting from the DB state.
+        # A more advanced version could store these scores in the DB.
+        profile_scores = {
+            dim: {opt.value: 0.5 for opt in options} for dim, options in self.dimensions.items()
+        }
         
-        return updated_profile, confidence
+        dominant_styles = {}
+        confidence_scores = []
 
-cognitive_analyzer_service = CognitiveAnalyzerService()
+        for dim, options in self.dimensions.items():
+            option_labels = [opt.value for opt in options]
+            result = self.classifier(prompt, option_labels, multi_label=False)
+            
+            top_label = result['labels'][0]
+            confidence = result['scores'][0]
+            
+            # Apply decay to all scores in the dimension
+            for opt in profile_scores[dim]:
+                profile_scores[dim][opt] = max(0.0, profile_scores[dim][opt] * (1 - self.decay_rate))
+
+            # Adapt the top-scoring label
+            profile_scores[dim][top_label] = min(1.0, profile_scores[dim][top_label] + confidence * self.adaptation_rate)
+
+            # Determine the new dominant style for this dimension
+            dominant_style = max(profile_scores[dim], key=profile_scores[dim].get)
+            dominant_styles[dim] = dominant_style
+            confidence_scores.append(profile_scores[dim][dominant_style])
+
+        update_schema = CognitiveProfileUpdate(**dominant_styles)
+        overall_confidence = np.mean(confidence_scores)
+
+        return update_schema, overall_confidence
+
+ml_cognitive_analyzer_service = MLCognitiveAnalyzerService()

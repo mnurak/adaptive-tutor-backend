@@ -20,3 +20,8 @@ python-multipart
 langchain>=0.2.0
 langchain-core>=0.2.0
 langchain-groq>=0.1.0
+
+# these for the ML Cognitive Analyzer
+transformers>=4.30.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.1+cpu

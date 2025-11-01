@@ -15,7 +15,7 @@ from app.core.config import settings # <-- Import settings
 # This prevents the library from failing to find the environment variable.
 chat_llm = ChatGroq(
     groq_api_key=settings.GORQ_API_KEY,
-    model="gemma2-9b-it", # Use the new Gemma 2 model
+    model="openai/gpt-oss-20b", # Use the new Gemma 2 model
     temperature=0.7
 )
 

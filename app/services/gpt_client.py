@@ -30,7 +30,7 @@ async def generate_instruction(prompt: str) -> str:
                     "content": prompt,
                 }
             ],
-            model="gemma2-9b-it", # Or another model like "gemma2-9b-it"
+            model="openai/gpt-oss-20b", 
             temperature=0.7,
             max_tokens=1024,
             top_p=1,
